@@ -11,13 +11,15 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 )
 
 const (
-	LABEL_VALUE = "dockerssh"
+	LABEL_KEY   = "org.label-schema.url"
+	LABEL_VALUE = "https://github.com/xwjdsh/dockerssh"
 )
 
 var (
@@ -99,7 +101,7 @@ func create(o *Options, ctxs ...context.Context) (string, error) {
 	containerConfig := &container.Config{
 		Image:    ImageName,
 		Hostname: o.Name,
-		Labels:   map[string]string{"org.label-schema.name": LABEL_VALUE},
+		Labels:   map[string]string{LABEL_KEY: LABEL_VALUE},
 		ExposedPorts: nat.PortSet{
 			"22/tcp": struct{}{},
 		},
@@ -149,34 +151,30 @@ func start(id string, ctxs ...context.Context) error {
 	return cli.ContainerStart(ctx, id, types.ContainerStartOptions{})
 }
 
-// List all client services
-func List() ([]map[string]string, error) {
-	//cli, err := client.NewEnvClient()
-	//if err != nil {
-	//return nil, err
-	//}
-	//filters := filters.NewArgs()
-	//filters.Add("label", fmt.Sprintf("%s=%s", LABEL_KEY, LABEL_VALUE))
-	//containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{
-	//All:     true,
-	//Filters: filters,
-	//})
-	//if err != nil {
-	//return nil, err
-	//}
-	//cs := []map[string]string{}
-	//for _, container := range containers {
-	//name := container.Names[0]
-	//if len(name) > 0 {
-	//name = name[1:]
-	//}
-	//c := map[string]string{
-	//"name":    name,
-	//"state":   container.State,
-	//"service": container.Labels["service"],
-	//}
-	//cs = append(cs, c)
-	//}
-	//return cs, err
-	return nil, nil
+// List all docker sshd services
+func List() ([]*Service, error) {
+	list := []*Service{}
+	filters := filters.NewArgs()
+	filters.Add("label", fmt.Sprintf("%s=%s", LABEL_KEY, LABEL_VALUE))
+	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{
+		All:     true,
+		Filters: filters,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("List services error: %v", err)
+	}
+	for _, container := range containers {
+		s := &Service{
+			Name:  container.Names[0][1:],
+			State: container.State,
+		}
+		if len(container.Ports) > 0 {
+			s.Connect = fmt.Sprintf("ssh -p %d root@localhost", container.Ports[0].PublicPort)
+		}
+		if len(container.Mounts) > 0 {
+			s.Volume = fmt.Sprintf("%s -> %s", container.Mounts[0].Source, "/mnt")
+		}
+		list = append(list, s)
+	}
+	return list, nil
 }

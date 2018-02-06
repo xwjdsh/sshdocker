@@ -6,3 +6,10 @@ type Options struct {
 	Volume  string
 	Verbose bool
 }
+
+type Service struct {
+	Name    string
+	Connect string
+	Volume  string
+	State   string
+}

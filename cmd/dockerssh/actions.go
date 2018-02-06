@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/manifoldco/promptui"
+	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli"
 	"github.com/xwjdsh/dockerssh"
 )
@@ -63,22 +64,17 @@ func create(c *cli.Context) error {
 }
 
 func list(c *cli.Context) error {
-	//clients, err := kcm.List()
-	//if err != nil {
-	//fmt.Printf("%s %s\n", bold(promptui.IconBad), bold("Failed:"), err.Error())
-	//return nil
-	//}
-	//maxLen := 5
-	//for _, client := range clients {
-	//if l := len(client["name"]); l > maxLen {
-	//maxLen = l
-	//}
-	//}
-	//format := "%-" + strconv.Itoa(maxLen+5) + "s\t%-10s\t%s\n"
-	//fmt.Printf(format, "Name", "State", "Service")
-	//for _, client := range clients {
-	//fmt.Printf(format, client["name"], client["state"], client["service"])
-	//}
+	services, err := dockerssh.List()
+	if err != nil {
+		fmt.Printf("%s %s\n", promptui.IconBad, err.Error())
+		return nil
+	}
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"NAME", "STATE", "SSH", "VOLUME"})
+	for _, s := range services {
+		table.Append([]string{s.Name, s.State, s.Connect, s.Volume})
+	}
+	table.Render()
 	return nil
 }
 
