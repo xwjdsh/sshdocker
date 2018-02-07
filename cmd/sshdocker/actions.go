@@ -11,7 +11,7 @@ import (
 	"github.com/manifoldco/promptui"
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli"
-	"github.com/xwjdsh/dockerssh"
+	"github.com/xwjdsh/sshdocker"
 )
 
 var (
@@ -19,12 +19,12 @@ var (
 )
 
 func create(c *cli.Context) error {
-	err := dockerssh.ArgsCountCheck(c.NArg(), 1, 1)
+	err := sshdocker.ArgsCountCheck(c.NArg(), 1, 1)
 	if err != nil {
 		fmt.Printf("%s %v\n", promptui.IconBad, err)
 		return nil
 	}
-	options := &dockerssh.Options{
+	options := &sshdocker.Options{
 		Name:    c.Args().First(),
 		Verbose: c.Bool("verbose"),
 	}
@@ -54,7 +54,7 @@ func create(c *cli.Context) error {
 	}
 	os.MkdirAll(options.Volume, os.ModePerm)
 
-	err = dockerssh.Create(options)
+	err = sshdocker.Create(options)
 	if err == nil {
 		fmt.Printf("%s %s\n", promptui.IconGood, "Success")
 	} else {
@@ -64,7 +64,7 @@ func create(c *cli.Context) error {
 }
 
 func list(c *cli.Context) error {
-	services, err := dockerssh.List()
+	services, err := sshdocker.List()
 	if err != nil {
 		fmt.Printf("%s %s\n", promptui.IconBad, err.Error())
 		return nil

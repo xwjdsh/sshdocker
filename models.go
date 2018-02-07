@@ -1,4 +1,4 @@
-package dockerssh
+package sshdocker
 
 type Options struct {
 	Name    string

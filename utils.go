@@ -1,4 +1,4 @@
-package dockerssh
+package sshdocker
 
 import "errors"
 

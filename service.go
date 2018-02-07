@@ -1,4 +1,4 @@
-package dockerssh
+package sshdocker
 
 import (
 	"archive/tar"
@@ -19,12 +19,12 @@ import (
 
 const (
 	LABEL_KEY   = "org.label-schema.url"
-	LABEL_VALUE = "https://github.com/xwjdsh/dockerssh"
+	LABEL_VALUE = "https://github.com/xwjdsh/sshdocker"
 )
 
 var (
 	cli       *client.Client
-	ImageName = "dockerssh-sshd:latest"
+	ImageName = "sshdocker-sshd:latest"
 )
 
 func init() {
