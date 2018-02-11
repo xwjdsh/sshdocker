@@ -79,5 +79,17 @@ func list(c *cli.Context) error {
 }
 
 func destroy(c *cli.Context) error {
+	err := sshdocker.ArgsCountCheck(c.NArg(), 1, -1)
+	if err != nil {
+		fmt.Printf("%s %v\n", promptui.IconBad, err)
+		return nil
+	}
+	removed, failed := sshdocker.Destroy(c.Bool("volume"), c.Args())
+	for _, r := range removed {
+		fmt.Printf("%s %s\n", promptui.IconGood, r)
+	}
+	for _, err := range failed {
+		fmt.Printf("%s %v\n", promptui.IconBad, err)
+	}
 	return nil
 }

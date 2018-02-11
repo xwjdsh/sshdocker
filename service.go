@@ -24,7 +24,7 @@ const (
 
 var (
 	cli       *client.Client
-	ImageName = "sshdocker-sshd:latest"
+	ImageName = "sshdocker:latest"
 )
 
 func init() {
@@ -51,16 +51,7 @@ func Create(o *Options) error {
 	return nil
 }
 
-func pull() error {
-	r, err := cli.ImagePull(context.Background(), "", types.ImagePullOptions{})
-	if err != nil {
-		return err
-	}
-	io.Copy(os.Stdout, r)
-	return nil
-}
-
-func build(verbose bool, ctxs ...context.Context) error {
+func build(verbose bool, ctx context.Context) error {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
 	defer tw.Close()
@@ -78,12 +69,6 @@ func build(verbose bool, ctxs ...context.Context) error {
 	buildOptions := types.ImageBuildOptions{
 		Tags: []string{ImageName},
 	}
-	var ctx context.Context
-	if len(ctxs) > 0 {
-		ctx = ctxs[0]
-	} else {
-		ctx = context.Background()
-	}
 	resp, err := cli.ImageBuild(ctx, bytes.NewReader(buf.Bytes()), buildOptions)
 	defer resp.Body.Close()
 	if err != nil {
@@ -97,7 +82,7 @@ func build(verbose bool, ctxs ...context.Context) error {
 	return err
 }
 
-func create(o *Options, ctxs ...context.Context) (string, error) {
+func create(o *Options, ctx context.Context) (string, error) {
 	containerConfig := &container.Config{
 		Image:    ImageName,
 		Hostname: o.Name,
@@ -128,12 +113,6 @@ func create(o *Options, ctxs ...context.Context) (string, error) {
 		}
 	}
 
-	var ctx context.Context
-	if len(ctxs) > 0 {
-		ctx = ctxs[0]
-	} else {
-		ctx = context.Background()
-	}
 	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, o.Name)
 	if err != nil {
 		return "", err
@@ -141,25 +120,14 @@ func create(o *Options, ctxs ...context.Context) (string, error) {
 	return resp.ID, err
 }
 
-func start(id string, ctxs ...context.Context) error {
-	var ctx context.Context
-	if len(ctxs) > 0 {
-		ctx = ctxs[0]
-	} else {
-		ctx = context.Background()
-	}
+func start(id string, ctx context.Context) error {
 	return cli.ContainerStart(ctx, id, types.ContainerStartOptions{})
 }
 
 // List all docker sshd services
 func List() ([]*Service, error) {
-	list := []*Service{}
-	filters := filters.NewArgs()
-	filters.Add("label", fmt.Sprintf("%s=%s", LABEL_KEY, LABEL_VALUE))
-	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{
-		All:     true,
-		Filters: filters,
-	})
+	services := []*Service{}
+	containers, err := list(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("List services error: %v", err)
 	}
@@ -174,7 +142,52 @@ func List() ([]*Service, error) {
 		if len(container.Mounts) > 0 {
 			s.Volume = fmt.Sprintf("%s -> %s", container.Mounts[0].Source, "/mnt")
 		}
-		list = append(list, s)
+		services = append(services, s)
 	}
-	return list, nil
+	return services, nil
+}
+
+func list(ctx context.Context, names ...string) ([]types.Container, error) {
+	filters := filters.NewArgs()
+	filters.Add("label", fmt.Sprintf("%s=%s", LABEL_KEY, LABEL_VALUE))
+	if len(names) > 0 {
+		filters.Add("name", names[0])
+	}
+	return cli.ContainerList(ctx, types.ContainerListOptions{
+		All:     true,
+		Filters: filters,
+	})
+}
+
+func Destroy(removeVolume bool, names []string) ([]string, []error) {
+	removed, failed := []string{}, []error{}
+	ctx := context.Background()
+	for _, name := range names {
+		cs, err := list(ctx, name)
+		if err != nil {
+			failed = append(failed, err)
+			continue
+		}
+		var source string
+		if len(cs) > 0 && len(cs[0].Mounts) > 0 {
+			source = cs[0].Mounts[0].Source
+		}
+		if err := destroy(ctx, name); err == nil {
+			removed = append(removed, name)
+			if source != "" {
+				os.RemoveAll(source)
+			}
+		} else {
+			failed = append(failed, err)
+		}
+	}
+	return removed, failed
+}
+
+func destroy(ctx context.Context, name string) error {
+	return cli.ContainerRemove(ctx, name,
+		types.ContainerRemoveOptions{
+			Force: true,
+		},
+	)
 }
