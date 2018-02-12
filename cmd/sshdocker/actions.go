@@ -48,11 +48,13 @@ func create(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	options.Volume, err = filepath.Abs(options.Volume)
-	if err != nil {
-		return err
+	if options.Volume != "" {
+		options.Volume, err = filepath.Abs(options.Volume)
+		if err != nil {
+			return err
+		}
+		os.MkdirAll(options.Volume, os.ModePerm)
 	}
-	os.MkdirAll(options.Volume, os.ModePerm)
 
 	err = sshdocker.Create(options)
 	if err == nil {

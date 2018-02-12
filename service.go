@@ -48,6 +48,9 @@ func Create(o *Options) error {
 	if err := start(id, ctx); err != nil {
 		return fmt.Errorf("Container start error: %v", err)
 	}
+	if err := exec(o.Name, ctx); err != nil {
+		return fmt.Errorf("Container exec error: %v", err)
+	}
 	return nil
 }
 
@@ -124,6 +127,17 @@ func start(id string, ctx context.Context) error {
 	return cli.ContainerStart(ctx, id, types.ContainerStartOptions{})
 }
 
+func exec(name string, ctx context.Context) error {
+	resp, err := cli.ContainerExecCreate(ctx, name, types.ExecConfig{
+		User: "root",
+		Cmd:  []string{"sh", "-c", fmt.Sprintf("echo 'root:%s' | chpasswd", name)},
+	})
+	if err != nil {
+		return err
+	}
+	return cli.ContainerExecStart(ctx, resp.ID, types.ExecStartCheck{})
+}
+
 // List all docker sshd services
 func List() ([]*Service, error) {
 	services := []*Service{}
@@ -174,7 +188,7 @@ func Destroy(removeVolume bool, names []string) ([]string, []error) {
 		}
 		if err := destroy(ctx, name); err == nil {
 			removed = append(removed, name)
-			if source != "" {
+			if removeVolume && source != "" {
 				os.RemoveAll(source)
 			}
 		} else {
