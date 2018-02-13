@@ -63,6 +63,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/jhoonb/archivex"
+  packages = ["."]
+  revision = "be4efa7ec0c38ab76d56037014c90d48d6b13037"
+
+[[projects]]
+  branch = "master"
   name = "github.com/juju/ansiterm"
   packages = [
     ".",
@@ -144,6 +150,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "28c74f62a2b9583fc2aad574177273a00e6becf0f151b30f90246bea4b12b08b"
+  inputs-digest = "6ecc8cace2322f5b0d2bd2b6823c69d8316ca83e492b3df283af0352f9b5ceb0"
   solver-name = "gps-cdcl"
   solver-version = 1

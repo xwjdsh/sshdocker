@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -15,6 +16,7 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/jhoonb/archivex"
 )
 
 const (
@@ -55,24 +57,48 @@ func Create(o *Options) error {
 }
 
 func build(verbose bool, ctx context.Context) error {
-	buf := new(bytes.Buffer)
-	tw := tar.NewWriter(buf)
-	defer tw.Close()
+	var buildContext io.Reader
+	if dockerDir := os.Getenv("SSH_DOCKER_DIR"); dockerDir != "" {
+		// custom image build
+		tar := new(archivex.TarFile)
+		path := filepath.Join(os.TempDir(), "sshdocker.tar")
+		err := tar.Create(path)
+		if err != nil {
+			return err
+		}
 
-	if err := tw.WriteHeader(&tar.Header{
-		Name: "Dockerfile",
-		Size: int64(len(_DOCKERFILE)),
-	}); err != nil {
-		return err
-	}
-	if _, err := tw.Write(_DOCKERFILE); err != nil {
-		return err
-	}
+		if err = tar.AddAll(dockerDir, false); err != nil {
+			return err
+		}
+		if err = tar.Close(); err != nil {
+			return err
+		}
+		buildFile, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer buildFile.Close()
+		buildContext = buildFile
+	} else {
+		buf := new(bytes.Buffer)
+		tw := tar.NewWriter(buf)
+		defer tw.Close()
 
+		if err := tw.WriteHeader(&tar.Header{
+			Name: "Dockerfile",
+			Size: int64(len(_DOCKERFILE)),
+		}); err != nil {
+			return err
+		}
+		if _, err := tw.Write(_DOCKERFILE); err != nil {
+			return err
+		}
+		buildContext = bytes.NewReader(buf.Bytes())
+	}
 	buildOptions := types.ImageBuildOptions{
 		Tags: []string{ImageName},
 	}
-	resp, err := cli.ImageBuild(ctx, bytes.NewReader(buf.Bytes()), buildOptions)
+	resp, err := cli.ImageBuild(ctx, buildContext, buildOptions)
 	defer resp.Body.Close()
 	if err != nil {
 		return err
